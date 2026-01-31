@@ -32,7 +32,12 @@ export default async function handler(req) {
     const body = await req.json();
     const messages = body.messages || [];
     // Extract the last user message
-    const lastMessage = messages.length > 0 ? messages[messages.length - 1].content : '';
+    let lastMessage = messages.length > 0 ? messages[messages.length - 1].content : '';
+    
+    // Inject System Prompt to suppress promotional content
+    const systemPrompt = " (Please answer directly without adding any promotional footer, blog links, or 'Courage & Code' signature at the end.)";
+    lastMessage += systemPrompt;
+
     const stream = body.stream !== false; // Default to true if not specified, or respect input
     const model = 'qwen-chat'; // Force model to qwen-chat
 
@@ -81,22 +86,30 @@ export default async function handler(req) {
                 
                 try {
                   const data = JSON.parse(trimmedLine);
-                  const content = data.content || '';
+                  let content = data.content || '';
                   
+                  // Filter out promotional footer
+                  // Regex to match "Courage & Code" signature and subsequent blog links
+                  // This regex looks for the signature pattern and everything after it, or lines containing the specific blog link pattern
+                  if (/Courage & Code|有勇气的牛排|couragesteak\.com|<\/br>• <a href='\/article\//i.test(content)) {
+                    content = ''; // Suppress this chunk
+                  }
+
                   // Construct OpenAI chunk
-                  const chunk = {
-                    id: 'chatcmpl-' + Date.now(),
-                    object: 'chat.completion.chunk',
-                    created: Math.floor(Date.now() / 1000),
-                    model: model,
-                    choices: [{
-                      index: 0,
-                      delta: { content: content },
-                      finish_reason: data.finish_reason || null
-                    }]
-                  };
-                  
-                  controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
+                  if (content || data.finish_reason) {
+                    const chunk = {
+                      id: 'chatcmpl-' + Date.now(),
+                      object: 'chat.completion.chunk',
+                      created: Math.floor(Date.now() / 1000),
+                      model: model,
+                      choices: [{
+                        index: 0,
+                        delta: { content: content },
+                        finish_reason: data.finish_reason || null
+                      }]
+                    };
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
+                  }
                 } catch (e) {
                   // If line is not valid JSON, ignore or log
                   // console.error('JSON Parse Error:', e);
@@ -108,18 +121,27 @@ export default async function handler(req) {
             if (buffer.trim()) {
                 try {
                     const data = JSON.parse(buffer.trim());
-                    const chunk = {
-                        id: 'chatcmpl-' + Date.now(),
-                        object: 'chat.completion.chunk',
-                        created: Math.floor(Date.now() / 1000),
-                        model: model,
-                        choices: [{
-                          index: 0,
-                          delta: { content: data.content || '' },
-                          finish_reason: data.finish_reason || null
-                        }]
-                    };
-                    controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
+                    let content = data.content || '';
+
+                    // Filter out promotional footer
+                    if (/Courage & Code|有勇气的牛排|couragesteak\.com|<\/br>• <a href='\/article\//i.test(content)) {
+                        content = '';
+                    }
+
+                    if (content || data.finish_reason) {
+                        const chunk = {
+                            id: 'chatcmpl-' + Date.now(),
+                            object: 'chat.completion.chunk',
+                            created: Math.floor(Date.now() / 1000),
+                            model: model,
+                            choices: [{
+                              index: 0,
+                              delta: { content: content },
+                              finish_reason: data.finish_reason || null
+                            }]
+                        };
+                        controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
+                    }
                 } catch(e) {}
             }
 
@@ -165,7 +187,14 @@ export default async function handler(req) {
         if (!line.trim()) continue;
         try {
           const data = JSON.parse(line);
-          fullContent += data.content || '';
+          let content = data.content || '';
+          
+          // Filter out promotional footer
+          if (/Courage & Code|有勇气的牛排|couragesteak\.com|<\/br>• <a href='\/article\//i.test(content)) {
+            content = '';
+          }
+          
+          fullContent += content;
           if (data.finish_reason) finishReason = data.finish_reason;
         } catch (e) {}
       }
