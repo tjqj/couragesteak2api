@@ -34,8 +34,8 @@ export default async function handler(req) {
     // Extract the last user message
     let lastMessage = messages.length > 0 ? messages[messages.length - 1].content : '';
     
-    // Inject System Prompt to suppress promotional content
-    const systemPrompt = " (Please answer directly without adding any promotional footer, blog links, or 'Courage & Code' signature at the end.)";
+    // Inject System Prompt to suppress promotional content and define identity
+    const systemPrompt = " (You are Qwen, a large language model from Alibaba Cloud. Please answer directly without adding any promotional footer, blog links, or 'Courage & Code' signature at the end.)";
     lastMessage += systemPrompt;
 
     const stream = body.stream !== false; // Default to true if not specified, or respect input
@@ -92,7 +92,12 @@ export default async function handler(req) {
                   // Regex to match "Courage & Code" signature and subsequent blog links
                   // This regex looks for the signature pattern and everything after it, or lines containing the specific blog link pattern
                   if (/Courage & Code|有勇气的牛排|couragesteak\.com|<\/br>• <a href='\/article\//i.test(content)) {
-                    content = ''; // Suppress this chunk
+                    // Check if it's the specific identity phrase to replace instead of just suppressing
+                    if (content.includes('我是有勇气的牛排，一名全栈开发博主')) {
+                        content = content.replace('我是有勇气的牛排，一名全栈开发博主', '我是通义千问（Qwen），阿里巴巴集团旗下的超大规模语言模型');
+                    } else {
+                        content = ''; // Suppress this chunk
+                    }
                   }
 
                   // Construct OpenAI chunk
@@ -125,7 +130,12 @@ export default async function handler(req) {
 
                     // Filter out promotional footer
                     if (/Courage & Code|有勇气的牛排|couragesteak\.com|<\/br>• <a href='\/article\//i.test(content)) {
-                        content = '';
+                        // Check if it's the specific identity phrase to replace instead of just suppressing
+                        if (content.includes('我是有勇气的牛排，一名全栈开发博主')) {
+                            content = content.replace('我是有勇气的牛排，一名全栈开发博主', '我是通义千问（Qwen），阿里巴巴集团旗下的超大规模语言模型');
+                        } else {
+                            content = '';
+                        }
                     }
 
                     if (content || data.finish_reason) {
@@ -191,7 +201,12 @@ export default async function handler(req) {
           
           // Filter out promotional footer
           if (/Courage & Code|有勇气的牛排|couragesteak\.com|<\/br>• <a href='\/article\//i.test(content)) {
-            content = '';
+            // Check if it's the specific identity phrase to replace instead of just suppressing
+            if (content.includes('我是有勇气的牛排，一名全栈开发博主')) {
+                content = content.replace('我是有勇气的牛排，一名全栈开发博主', '我是通义千问（Qwen），阿里巴巴集团旗下的超大规模语言模型');
+            } else {
+                content = '';
+            }
           }
           
           fullContent += content;
