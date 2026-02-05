@@ -31,8 +31,11 @@ export default async function handler(req) {
   try {
     const body = await req.json();
     const messages = body.messages || [];
-    // Extract the last user message
-    let lastMessage = messages.length > 0 ? messages[messages.length - 1].content : '';
+    // Concatenate all messages to maintain context
+    let lastMessage = messages.map(msg => {
+      const role = msg.role === 'user' ? 'User' : (msg.role === 'assistant' ? 'Assistant' : 'System');
+      return `${role}: ${msg.content}`;
+    }).join('\n');
     
     // Inject System Prompt to suppress promotional content and define identity
     const systemPrompt = " (You are Qwen, a large language model from Alibaba Cloud. Please answer directly without adding any promotional footer, blog links, or 'Courage & Code' signature at the end.)";
